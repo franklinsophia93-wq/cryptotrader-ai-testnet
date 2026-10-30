@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from public_market import public_market_check
 from paper_research import research_snapshot
+from strategy_validation import walkforward_report
 
 TESTNET_URL = 'https://testnet.binance.vision/api/v3/time'
 
@@ -55,6 +56,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(public_market_check())
         elif path == '/research/backtest':
             self.reply(research_snapshot())
+        elif path == '/research/validation-v2':
+            self.reply(walkforward_report())
         else:
             self.reply({'error': 'NOT_FOUND'}, 404)
 
@@ -86,6 +89,17 @@ def startup_check():
                  'results': [{'symbol': v['symbol'], 'trades': v['trades'], 'candlesUsed': v['candlesUsed']}
                              for v in study.get('results', [])]}
     print('PAPER_RESEARCH_STARTUP_CHECK ' + json.dumps(sanitized, separators=(',', ':')), flush=True)
+    v = walkforward_report()
+    condensed = {
+        'status': v['status'], 'error': v.get('error'),
+        'assets': len(v['evaluations']),
+        'samples': [{'symbol': x['symbol'], 'timeframe': x['timeframe'],
+                     'holdoutReturnPct': x['holdout']['returnPct'],
+                     'holdoutBuyHoldReturnPct': x['holdoutBuyHoldReturnPct'],
+                     'qualified': x['selectionQualified']}
+                    for x in v['evaluations']],
+    }
+    print('STRATEGY_VALIDATION_STARTUP_CHECK ' + json.dumps(condensed, separators=(',', ':')), flush=True)
 
 
 if __name__ == '__main__':
