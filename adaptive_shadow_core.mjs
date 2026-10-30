@@ -105,12 +105,12 @@ export function applyTick(previous,feeds,now){
   s.lastError=String(e.message).slice(0,36);
   s.cycles.failed++;
   s.cycles.mostRecent.push({at:s.lastTick,healthy:false,error:s.lastError});
-  s.cycles.mostRecent=s.cycles.mostRecent.slice(-24);
+  s.cycles.mostRecent=s.cycles.mostRecent.slice(-340);
   return s; // all-or-nothing; no fills on bad feed
  }
  s.lastError=null;s.cycles.healthy++;
  s.cycles.mostRecent.push({at:s.lastTick,healthy:true});
- s.cycles.mostRecent=s.cycles.mostRecent.slice(-24);
+ s.cycles.mostRecent=s.cycles.mostRecent.slice(-340);
  for(const feed of feeds){
   const p=s.portfolios[feed.key], ms=checks[feed.key];
   recompute(p,feed.price,now);
@@ -171,7 +171,7 @@ export function failedTick(previous,now,reason='MARKET_UNAVAILABLE'){
  s.lastError=safeReason;
  s.cycles.total++;s.cycles.failed++;
  s.cycles.mostRecent.push({at:s.lastTick,healthy:false,error:safeReason});
- s.cycles.mostRecent=s.cycles.mostRecent.slice(-24);
+ s.cycles.mostRecent=s.cycles.mostRecent.slice(-340);
  return s;
 }
 export function status(s){
