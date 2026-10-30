@@ -1,4 +1,5 @@
 // Isolated virtual-only portfolio state machine; NO exchange order APIs.
+import {summarizeCycles} from './paper_health.mjs';
 export const PAIRS=['BTC-USD','ETH-USD'];
 export const RULES=Object.freeze({fee:0.001,slip:0.0005,assetCap:0.20,totalCap:0.40,stop:0.03,target:0.06,dailyLoss:0.03,maxDrawdown:0.08});
 export const freshState=(now)=>({version:1,mode:'PAPER_ONLY',source:'COINBASE_EXCHANGE_PUBLIC',
@@ -97,6 +98,6 @@ export function publicView(previous){
    dailyLossPct:s.dailyLossPct??0,newEntriesBlocked:s.newEntriesBlocked??false,
    openPositions:Object.values(s.positions),completedTrades:s.completedTrades,
    winningTrades:s.winningTrades,realizedUSD:s.realizedUSD,
-   recentEvents:s.journal.slice(-25),ordersEnabled:false,
+   recentEvents:s.journal.slice(-25),cycleHealth:summarizeCycles(s.cycleMetrics,Date.now()),ordersEnabled:false,
    persistence:'CLOUDFLARE_DURABLE_OBJECT',monitorCadence:'EVERY_5_MINUTES_WHEN_SCHEDULED'};
 }
