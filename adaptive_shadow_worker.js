@@ -3,6 +3,8 @@
 import {DurableObject} from 'cloudflare:workers';
 import {CONFIG, KEYS, blank, applyTick, failedTick, status} from './adaptive_shadow_core.mjs';
 import {renderDashboard} from './adaptive_shadow_dashboard.mjs';
+import {deriveFinancials,reconstructTrades} from './adaptive_shadow_audit.mjs';
+import {advancePaired,skippedPaired,summarizePaired} from './adaptive_paired_forward.mjs';
 const BASE='https://api.exchange.coinbase.com/products/';
 const response=(body,statusCode=200)=>new Response(JSON.stringify(body),{status:statusCode,headers:{
  'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'
@@ -62,22 +64,43 @@ export class AdaptiveShadow extends DurableObject{
  async fetch(request){
   const path=new URL(request.url).pathname;
   if(path==='/state'&&request.method==='GET'){
-   return response(status(await this.ctx.storage.get('shadow')));
+   const stored=await this.ctx.storage.get('shadow');
+   return response({...status(stored),
+     financialAudit:deriveFinancials(stored),
+     recentClosedTrades:reconstructTrades(stored),
+     pairedComparison:summarizePaired(stored?.pairedComparison),
+     pairedComparisonError:stored?.pairedComparisonError||null});
   }
   if(path!=='/tick'||request.method!=='POST')return response({error:'NOT_FOUND'},404);
   if(this.busy)return response({updated:false,error:'BUSY'},409);
   this.busy=true;
   try{
    const now=Date.now(),previous=await this.ctx.storage.get('shadow');
-   let next;
-   try{next=applyTick(previous,await collectAll(now),now)}
-   catch(e){next=failedTick(previous,now,String(e?.message||'MARKET_UNAVAILABLE'))}
+   let next,feeds=null;
+   try{
+    feeds=await collectAll(now);
+    next=applyTick(previous,feeds,now);
+   }catch(e){next=failedTick(previous,now,String(e?.message||'MARKET_UNAVAILABLE'))}
+   // The original paper portfolio and strategy decisions are never changed by the paired benchmark.
+   if(next.lastError===null&&feeds){
+    try{
+     next.pairedComparison=advancePaired(previous?.pairedComparison,feeds,now);
+     next.pairedComparisonError=null;
+    }catch{
+     next.pairedComparison=previous?.pairedComparison??null;
+     next.pairedComparisonError='PAIRED_COMPARISON_UNAVAILABLE';
+    }
+   }else{
+    next.pairedComparison=skippedPaired(previous?.pairedComparison);
+   }
    await this.ctx.storage.put('shadow',next);
    const overview={
      positions:KEYS.filter(k=>next.portfolios[k].position!==null).length,
      closedTrades:KEYS.reduce((a,k)=>a+next.portfolios[k].trades,0),
      decisions:KEYS.reduce((a,k)=>a+next.portfolios[k].decisions,0),
-     reasons:Object.fromEntries(KEYS.map(k=>[k,next.portfolios[k].latestDecision?.reason??null]))
+     reasons:Object.fromEntries(KEYS.map(k=>[k,next.portfolios[k].latestDecision?.reason??null])),
+     pairedComparisonInitialized:Boolean(next.pairedComparison),
+     pairedComparisonError:next.pairedComparisonError||null
    };
    return response({updated:true,healthy:next.lastError===null,error:next.lastError,
     totalCycles:next.cycles.total,overview,ordersEnabled:false});
