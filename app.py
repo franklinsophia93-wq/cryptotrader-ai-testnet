@@ -49,5 +49,14 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
+def startup_check():
+    result = probe()
+    summary = {'reachable': result['reachable'], 'result': result['result'], 'httpStatus': result['httpStatus']}
+    print('BINANCE_TESTNET_STARTUP_CHECK ' + json.dumps(summary, separators=(',', ':')), flush=True)
+
+
 if __name__ == '__main__':
-    ThreadingHTTPServer(('0.0.0.0', int(os.getenv('PORT', '10000'))), Handler).serve_forever()
+    import threading
+    server = ThreadingHTTPServer(('0.0.0.0', int(os.getenv('PORT', '10000'))), Handler)
+    threading.Thread(target=startup_check, daemon=True).start()
+    server.serve_forever()
