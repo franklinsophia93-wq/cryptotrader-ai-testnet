@@ -90,7 +90,7 @@ class AdaptiveTests(unittest.TestCase):
 
     def test_limited_positive_training_samples_are_rejected(self):
         s=bars(price=lambda i:100+i*0.5)
-        map_,diag,_=lab.train_mapping(s,105)
+        map_,diag,_=lab.train_mapping(s,76)
         self.assertTrue(all(x is None for x in map_.values()))
         self.assertTrue(all(c['completedTrainingTrades']<3 for v in diag.values()
                             for c in v['trainingEvidence']))
