@@ -1,23 +1,23 @@
 // Separate research-only paper-trading Worker. It never calls Binance order endpoints.
 import { DurableObject } from 'cloudflare:workers';
 import { PAIRS, freshState, step, publicView } from './paper_core.mjs';
-import {recordCycle} from './paper_health.mjs';
+import {recordCycle,feedHttpCode} from './paper_health.mjs';
 const HOUR=3600000;
 const BASE='https://api.exchange.coinbase.com/products/';
 const reply=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{
   'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'
 }});
-async function fetchJSON(url){
+async function fetchJSON(url,symbol,stage){
  const r=await fetch(url,{method:'GET',headers:{accept:'application/json'},redirect:'manual',
    signal:AbortSignal.timeout(8000)});
- if(!r.ok)throw Error('HTTP_'+r.status);
+ if(!r.ok)throw Error(feedHttpCode(r.status,symbol,stage));
  return r.json();
 }
 async function market(sym,now){
  if(!PAIRS.includes(sym))throw Error('INVALID_SYMBOL');
  const [ticker,candles]=await Promise.all([
-    fetchJSON(BASE+sym+'/ticker'),
-    fetchJSON(BASE+sym+'/candles?granularity=3600')
+    fetchJSON(BASE+sym+'/ticker',sym,'TICKER'),
+    fetchJSON(BASE+sym+'/candles?granularity=3600',sym,'CANDLES')
  ]);
  const price=Number(ticker?.price),tickerAt=Date.parse(ticker?.time);
  if(!Array.isArray(candles)||candles.length<60)throw Error('INSUFFICIENT_CANDLES');
@@ -59,7 +59,7 @@ export class PaperPortfolio extends DurableObject{
        next=structuredClone(previous);
        next.lastTick=new Date(now).toISOString();
        const code=String(e?.message||'NETWORK_ERROR');
-       next.lastError=/^(HTTP_[0-9]{3}|INSUFFICIENT_CANDLES|BAD_CANDLE|MISALIGNED_CANDLE|CONFLICTING_CANDLES|MISSING_CANDLES|GAPPED_CANDLES|STALE_CANDLES)$/.test(code)?code:'DATA_SOURCE_UNAVAILABLE';
+       next.lastError=/^(HTTP_[0-9]{3}(_(BTC|ETH)_(TICKER|CANDLES))?|UPSTREAM_HTTP_ERROR|INSUFFICIENT_CANDLES|BAD_CANDLE|MISALIGNED_CANDLE|CONFLICTING_CANDLES|MISSING_CANDLES|GAPPED_CANDLES|STALE_CANDLES)$/.test(code)?code:'DATA_SOURCE_UNAVAILABLE';
        next.newEntriesBlocked=true;
      }
      recordCycle(next,now,next.lastError===null,next.lastError);
