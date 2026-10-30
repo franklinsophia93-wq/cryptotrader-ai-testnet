@@ -21,4 +21,4 @@ jobs:
       - name: Run offline tests
         run: python -m unittest discover -p 'test_*.py' -v
       - name: Verify paper engine in Node
-        run: node --test paper_core.test.mjs paper_health.test.mjs paper_signals.test.mjs
+        run: node --test paper_core.test.mjs paper_health.test.mjs paper_signals.test.mjs adaptive_shadow_core.test.mjs
