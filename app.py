@@ -19,7 +19,23 @@ def probe(url=TESTNET_URL, timeout=7):
             valid = response.status == 200 and isinstance(data, dict) and type(data.get('serverTime')) is int
             return {'reachable': valid, 'httpStatus': response.status, 'result': 'OK' if valid else 'INVALID_RESPONSE'}
     except HTTPError as exc:
-        return {'reachable': False, 'httpStatus': exc.code, 'result': 'HTTP_ERROR'}
+        # Classify the upstream response without logging its body or headers.
+        try:
+            detail = exc.read(2048).decode('utf-8', errors='replace').lower()
+        except (OSError, ValueError):
+            detail = ''
+        if exc.code == 451:
+            reason = 'LOCATION_OR_LEGAL_RESTRICTION' if (
+                'restricted location' in detail
+                or 'legal reason' in detail
+                or 'eligibility' in detail
+                or 'unavailable for legal reasons' in detail
+            ) else 'HTTP_451_UNSPECIFIED'
+        elif exc.code == 530:
+            reason = 'DNS_1016' if '1016' in detail else 'HTTP_530_UNSPECIFIED'
+        else:
+            reason = 'HTTP_ERROR'
+        return {'reachable': False, 'httpStatus': exc.code, 'result': reason}
     except (URLError, TimeoutError, OSError):
         return {'reachable': False, 'httpStatus': None, 'result': 'NETWORK_ERROR'}
     except (ValueError, json.JSONDecodeError):
