@@ -97,6 +97,10 @@ export function applyTick(previous,feeds,now){
    checks[f.key]=freshFeed(f,now);
   }
   if(KEYS.some(k=>!checks[k]))throw Error('INCOMPLETE_FEED');
+  for(const feed of feeds){
+   const last=s.portfolios[feed.key]?.lastProcessedClosedBar;
+   if(last!=null&&feed.bars.at(-1).t<last)throw Error('REGRESSED_BAR');
+  }
  }catch(e){
   s.lastError=String(e.message).slice(0,36);
   s.cycles.failed++;
@@ -127,9 +131,6 @@ export function applyTick(previous,feeds,now){
    else if(feed.price>=pos.entryPrice*(1+target))close('TICK_TARGET');
   }
   const lastBar=feed.bars.at(-1).t;
-  if(p.lastProcessedClosedBar!==null&&lastBar<p.lastProcessedClosedBar){
-   s.lastError='REGRESSED_BAR';p.blockedEntries=true;continue;
-  }
   if(p.lastProcessedClosedBar!==lastBar){
    p.lastProcessedClosedBar=lastBar;
    const regime=classify(feed.bars),chosen=CONFIG.mapping[feed.key][regime];
