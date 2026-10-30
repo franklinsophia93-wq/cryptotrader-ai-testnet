@@ -105,6 +105,6 @@ test('fixed selection is deterministic and frozen across all markets',()=>{
 test('paired comparison refuses candle regression rather than replaying the past',()=>{
  const s=advancePaired(null,feeds(),NOW);
  const f=feeds(NOW+6*H);
- f[0].bars=f[0].bars.map(b=>({...b,t:b.t-2*H}));
+ f[0].bars=f[0].bars.map(b=>({...b,t:b.t-12*H}));
  assert.throws(()=>advancePaired(s,f,NOW+6*H),/REGRESSED_BAR/);
 });
