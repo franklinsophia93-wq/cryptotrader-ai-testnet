@@ -91,7 +91,7 @@ export function step(previous,markets,now){
 }
 export function publicView(previous){
  const s=previous??freshState(Date.now());
- return{mode:'PAPER_ONLY',source:s.source,initializedAt:s.initializedAt,lastTick:s.lastTick,
+ return{mode:'PAPER_ONLY',source:s.source,stateInitialized:previous!=null,initializedAt:previous?s.initializedAt:null,lastTick:s.lastTick,
    lastError:s.lastError,initialUSD:s.initialUSD,cashUSD:s.cashUSD,
    equityUSD:s.equityUSD??s.cashUSD,drawdownPct:s.drawdownPct??0,
    dailyLossPct:s.dailyLossPct??0,newEntriesBlocked:s.newEntriesBlocked??false,
