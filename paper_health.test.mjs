@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {recordCycle, summarizeCycles, CADENCE_MS} from './paper_health.mjs';
+import {recordCycle, summarizeCycles, CADENCE_MS, feedHttpCode} from './paper_health.mjs';
 
 const start = Date.parse('2026-10-29T20:00:00.000Z');
 const fresh = () => ({positions:{},journal:[]});
@@ -78,4 +78,18 @@ test('no first successful tick or stored metric can fabricate a 24h history',()=
   const r=summarizeCycles(s.cycleMetrics,start);
   assert.equal(r.fullDayVerified,false);
   assert.equal(r.lastSuccessfulAt,null);
+});
+
+
+test('market error codes identify instrument and endpoint without leaking URL',()=>{
+  assert.equal(feedHttpCode(400,'BTC-USD','CANDLES'),'HTTP_400_BTC_CANDLES');
+  assert.equal(feedHttpCode(429,'ETH-USD','TICKER'),'HTTP_429_ETH_TICKER');
+  assert.equal(feedHttpCode(401,'BTC-USD','TOKEN'),'UPSTREAM_HTTP_ERROR');
+  assert.equal(feedHttpCode(451,'XRP-USD','CANDLES'),'UPSTREAM_HTTP_ERROR');
+});
+test('classified market error survives the public health audit unchanged',()=>{
+  const s=recordCycle(fresh(),start,false,feedHttpCode(400,'ETH-USD','CANDLES'));
+  const r=summarizeCycles(s.cycleMetrics,start);
+  assert.equal(r.recentCycles[0].error,'HTTP_400_ETH_CANDLES');
+  assert.equal(r.failedCycles,1);
 });
