@@ -163,6 +163,16 @@ export function applyTick(previous,feeds,now){
  }
  return s;
 }
+export function failedTick(previous,now,reason='MARKET_UNAVAILABLE'){
+ const s=structuredClone(previous??blank(now));
+ s.lastTick=stamp(now);
+ const safeReason=/^(HTTP_[0-9]{3}_(BTC|ETH)_(TICKER|CANDLES_[16]H)|DATA_UNAVAILABLE|MISSING_CANDLES|INVALID_CANDLES|GAPPED_CANDLES|STALE_TICKER|INVALID_CANDLE_AGE|NETWORK_UNAVAILABLE)$/.test(String(reason))?reason:'MARKET_UNAVAILABLE';
+ s.lastError=safeReason;
+ s.cycles.total++;s.cycles.failed++;
+ s.cycles.mostRecent.push({at:s.lastTick,healthy:false,error:safeReason});
+ s.cycles.mostRecent=s.cycles.mostRecent.slice(-24);
+ return s;
+}
 export function status(s){
  if(!s)return{mode:'SHADOW_FORWARD_ONLY',initialized:false,ordersEnabled:false,
   description:'No scheduled cycle recorded yet'};
