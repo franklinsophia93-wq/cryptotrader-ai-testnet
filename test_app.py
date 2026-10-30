@@ -21,6 +21,17 @@ class TestEgress(unittest.TestCase):
         u.side_effect=HTTPError(app.TESTNET_URL,451,'Unavailable',{},io.BytesIO(b''))
         self.assertEqual(app.probe()['httpStatus'],451)
     @patch('app.urlopen')
+    def test_451_location_classified_without_raw_body(self,u):
+        u.side_effect=HTTPError(app.TESTNET_URL,451,'Unavailable',{},io.BytesIO(b'Access denied from a restricted location. account-id=DO_NOT_LOG'))
+        result=app.probe()
+        self.assertEqual(result['result'],'LOCATION_OR_LEGAL_RESTRICTION')
+        self.assertEqual(result['httpStatus'],451)
+        self.assertNotIn('account-id',str(result))
+    @patch('app.urlopen')
+    def test_530_dns_1016(self,u):
+        u.side_effect=HTTPError(app.TESTNET_URL,530,'Error',{},io.BytesIO(b'Cloudflare Error 1016 Origin DNS error'))
+        self.assertEqual(app.probe()['result'],'DNS_1016')
+    @patch('app.urlopen')
     def test_network_error(self,u):
         u.side_effect=URLError('DNS')
         self.assertEqual(app.probe()['result'],'NETWORK_ERROR')
