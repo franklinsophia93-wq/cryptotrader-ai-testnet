@@ -29,3 +29,20 @@ Keep this service separate from the Orion website. A legal/geographical access r
 This single chronological holdout is **not** a rolling walk-forward study, machine learning, a live simulation, or evidence of durable profitability. The short time windows, simplified OHLCV fills and training-selection bias require substantial further testing. No account keys or real/paper orders are used. The service can sleep on the Render Free plan. Binance access remains restricted by HTTP 451 from this server.
 
 Tests: `python -m unittest discover -p 'test_*.py' -v`.
+
+
+## Cloudflare persistent paper simulation (independent Worker)
+
+A separate Cloudflare Worker named `cryptotrader-paper-engine` is deployed alongside, **not replacing**, the original Binance Testnet monitor or Orion website.
+
+- GET `https://cryptotrader-paper-engine.franklinsophia93.workers.dev/health`: service information only
+- GET `https://cryptotrader-paper-engine.franklinsophia93.workers.dev/price-test`: Coinbase BTC-USD and ETH-USD public ticker/candle connectivity test
+- GET `https://cryptotrader-paper-engine.franklinsophia93.workers.dev/status`: **publicly visible** sanitized **fictional** portfolio status (no Binance credentials or live order data)
+- `*/5 * * * *` Cloudflare UTC Cron Trigger calls the internal Durable Object `PaperPortfolio` and stores one atomic portfolio snapshot in Durable Object storage.
+- Strict `PAPER_ONLY` mode: every buy/sell exists only in storage, no Coinbase or Binance order API or authorization credentials. Initial fictional balance US$10,000. BTC and ETH may be open simultaneously, one position per symbol. At most 20% virtual equity per asset and 40% total nominal exposure, 3% simulated stop, 6% target, 3% daily loss and 8% peak drawdown gate. Simulated 0.1% per-side fee and 0.05% per-side slippage. Maximum 150 persisted events.
+- Idempotency via last completed hourly candle per symbol, but stop/target checks use the fresh ticker on every successful 5-minute tick.
+- No candles or ticker => **no simulated orders**. The service tracks a feed error instead of inventing fills.
+
+**Important:** Although the Worker, schedule and Durable Object binding are configured, live ingestion, persisted virtual transactions and 24-hour uptime are **not yet certified**. Cron changes can take up to 15 minutes to propagate. Tests are unit tests, not 24-hour operational verification. Public endpoint checks from Render and GitHub Actions currently receive HTTP 403; a mobile-browser check may help distinguish network restrictions.
+
+Paper trading based on Coinbase USD data is **not** Binance Testnet trading. The blocked Binance credentials remain on the separate original Worker and are never copied into this Worker.
