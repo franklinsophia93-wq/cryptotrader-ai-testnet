@@ -22,10 +22,16 @@ def check(path):
                 safe['ordersEnabled']=obj.get('ordersEnabled')
             return safe
     except HTTPError as e:
-        return {'path':path,'http':e.code,'reason':'HTTP_ERROR'}
+        detail = e.read(300).decode('utf-8',errors='replace')
+        reason = 'EGRESS_POLICY_DENY' if 'Forbidden: requests to' in detail else 'HTTP_ERROR_OTHER'
+        return {'path':path,'http':e.code,'reason':reason}
     except (URLError,OSError,ValueError,TypeError):
         return {'path':path,'status':'NETWORK_OR_INVALID_JSON'}
 
 if __name__=='__main__':
     for route in ('health','price-test','status'):
         print('PAPER_WORKER_SMOKE '+json.dumps(check(route),separators=(',',':')),flush=True)
+    # Known existing Cloudflare Worker: unauthorized without token (401 expected).
+    old=ROOT
+    ROOT='https://cryptotrader-testnet-monitor.franklinsophia93.workers.dev'
+    print('LEGACY_WORKER_CONTROL '+json.dumps(check('health'),separators=(',',':')),flush=True)
