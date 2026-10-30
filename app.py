@@ -100,6 +100,28 @@ def startup_check():
                     for x in v['evaluations']],
     }
     print('STRATEGY_VALIDATION_STARTUP_CHECK ' + json.dumps(condensed, separators=(',', ':')), flush=True)
+    for route in ('health', 'price-test', 'status'):
+        url = 'https://cryptotrader-paper-engine.franklinsophia93.workers.dev/' + route
+        try:
+            response = Request(url, headers={'Accept': 'application/json'}, method='GET')
+            with urlopen(response, timeout=7) as upstream:
+                body = json.loads(upstream.read(32768))
+                detail = {'httpStatus': upstream.status}
+                if route == 'health':
+                    detail['workerStatus'] = body.get('mode')
+                elif route == 'price-test':
+                    detail['marketStatuses'] = [x.get('status') for x in body.get('results', [])]
+                else:
+                    detail['tickRecorded'] = body.get('lastTick') is not None
+                    detail['feedError'] = body.get('lastError')
+                    detail['openPositionCount'] = len(body.get('openPositions', []))
+                    detail['completedTrades'] = body.get('completedTrades', 0)
+                print('CLOUDFLARE_PAPER_CHECK ' + json.dumps({'route': route, **detail}), flush=True)
+        except HTTPError as e:
+            print('CLOUDFLARE_PAPER_CHECK ' + json.dumps({'route': route, 'httpStatus': e.code}), flush=True)
+        except (URLError, OSError, ValueError, KeyError, TypeError):
+            print('CLOUDFLARE_PAPER_CHECK ' + json.dumps({'route': route, 'error': 'UNAVAILABLE'}), flush=True)
+
 
 
 if __name__ == '__main__':
