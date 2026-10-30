@@ -158,3 +158,14 @@ Certification requires a full 24-hour window of recorded checks with at least 28
 **Operational** 24-hour certification is not a profitability guarantee, a market-data completeness guarantee, exchange execution proof, a fee quote, or approval for real trading. The comparison and the original four virtual portfolios keep their existing independent state; no strategy mapping, position, real order, or account credential is modified by this addition.
 
 Tests: `node --test adaptive_shadow_24h.test.mjs`. CI verifies missing cycles, a failed cycle, staleness, recovery after old failures leave the window, and retention.
+
+
+## Forward comparison research-maturity guard
+
+The isolated Shadow v4 Worker now exposes an additional **read-only** `researchMaturity` field under `/status` and a companion section in `/dashboard`. It assesses *whether there is enough prospective evidence to request human research review*. It never grants trading permissions, promotes a strategy, changes virtual orders, or alters stored portfolios.
+
+Conservative minimums (all required): >=30 calendar days elapsed from the simultaneous paired benchmark start to its last recorded tick; >=30 completed virtual trades per paired arm (fixed AND adaptive); rolling 24-hour operational verification; latest paired tick <=11 minutes old; no skipped paired cycles. Underlying net result is shown after modeled fees/slippage but even passing these gates does **not** demonstrate statistical significance or validate real execution. Sample-size thresholds are research policy, not a guarantee of validity.
+
+Status values include NOT_STARTED, INSUFFICIENT_FORWARD_DAYS, INSUFFICIENT_CLOSED_TRADES, OPERATIONAL_24H_NOT_VERIFIED, DATA_NOT_RECENT, PAIRED_CYCLES_SKIPPED, or READY_FOR_MANUAL_RESEARCH_REVIEW. The final status is **not** approval to trade with money. It is intentionally normal for the comparison to remain 'insufficient' for weeks or months, especially when frozen mappings choose CASH.
+
+Automated checks: `node --test adaptive_shadow_readiness.test.mjs`. This is research-only and has no Binance keys or order endpoints.
