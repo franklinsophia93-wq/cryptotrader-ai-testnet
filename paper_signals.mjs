@@ -7,7 +7,7 @@ export function explainMarketSignal(market, portfolio={}) {
   if (!['BTC-USD','ETH-USD'].includes(sym) ||
       !Array.isArray(market?.closes) || market.closes.length<60 ||
       market.closes.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<=0)) {
-    return {symbol:sym||'UNKNOWN',status:'DATA_UNAVAILABLE',buySignal:false};
+    return {symbol:sym||'UNKNOWN',status:'DATA_UNAVAILABLE',bullishConditionMet:false};
   }
   const sma15=average(market.closes,15),sma40=average(market.closes,40);
   const bullish=sma15>sma40;
@@ -20,7 +20,7 @@ export function explainMarketSignal(market, portfolio={}) {
   return {
     symbol:sym,status:'OK',closedCandleUTC:new Date(market.barTimestamp+3600000).toISOString(),
     sma15:round(sma15),sma40:round(sma40),trendDifferencePct:round(100*(sma15/sma40-1)),
-    bullishTrend:bullish,buySignal:bullish&&!riskBlocked&&!alreadyOpen,
+    bullishTrend:bullish,bullishConditionMet:bullish,
     reason,ordersEnabled:false
   };
 }
