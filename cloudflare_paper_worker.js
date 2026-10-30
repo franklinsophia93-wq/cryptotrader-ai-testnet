@@ -1,6 +1,7 @@
 // Separate research-only paper-trading Worker. It never calls Binance order endpoints.
 import { DurableObject } from 'cloudflare:workers';
 import { PAIRS, freshState, step, publicView } from './paper_core.mjs';
+import {recordCycle} from './paper_health.mjs';
 const HOUR=3600000;
 const BASE='https://api.exchange.coinbase.com/products/';
 const reply=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{
@@ -61,6 +62,7 @@ export class PaperPortfolio extends DurableObject{
        next.lastError=/^(HTTP_[0-9]{3}|INSUFFICIENT_CANDLES|BAD_CANDLE|MISALIGNED_CANDLE|CONFLICTING_CANDLES|MISSING_CANDLES|GAPPED_CANDLES|STALE_CANDLES)$/.test(code)?code:'DATA_SOURCE_UNAVAILABLE';
        next.newEntriesBlocked=true;
      }
+     recordCycle(next,now,next.lastError===null,next.lastError);
      await this.ctx.storage.put('portfolio',next);
      return reply({updated:true,marketError:next.lastError,ordersEnabled:false});
    }catch{return reply({updated:false,marketError:'PERSISTENCE_ERROR',ordersEnabled:false},503)}
@@ -90,7 +92,7 @@ export default {
        const result=await response.json();
        console.log('PAPER_CRON_RESULT',JSON.stringify({
          httpStatus:response.status,updated:result.updated===true,
-         marketError:result.marketError||null
+         marketError:result.marketError||null,feedHealthy:result.marketError===null
        }));
      }catch{
        console.log('PAPER_CRON_RESULT',JSON.stringify({updated:false,marketError:'SCHEDULED_INVOCATION_ERROR'}));
