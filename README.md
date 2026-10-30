@@ -80,3 +80,18 @@ Data split chronologically: first 70% for in-sample strategy comparison, last 30
 Research caveats: OHLC fills are approximations; fees and slippage estimates; no order book, outage or funding costs; short history and selection bias remain. This does NOT trade continuously. The live Cloudflare virtual portfolio and SMA rules have NOT changed.
 
 Run tests: python -m unittest discover -p 'test_*.py' -v.
+
+
+## Frozen market-regime adaptive research v4 (independent Render endpoint)
+
+`GET /research/adaptive-v4` runs a historical research-only evaluation of BTC-USD and ETH-USD on 1h and 6h completed Coinbase candles. **It never places any order and does not modify the existing Cloudflare paper portfolio.**
+
+The market regime at each candle open is identified exclusively from earlier closed candles: UPTREND, DOWNTREND, SIDEWAYS, or HIGH_VOLATILITY. The selection is NOT machine learning: it is a deterministic, rule-based regime map.
+
+For each asset/timeframe the first 70% of the candles provide training-only **completed** virtual trades for four previously defined strategies. Each regime may select a strategy only when that strategy has >=3 completed training trades attributed to that regime, a positive total after modeled transaction costs, and mean net return >0.20% per completed trade. Otherwise that regime maps to CASH and opens no positions.
+
+The learned regime-to-strategy mapping is then **frozen** and replayed on the last 30% of candles without adaptation or looking at holdout results. A new entry uses the strategy of its current regime; an open position retains its original strategy's exit and risk rules. One long-only position per asset, 25% of available fictitious cash per entry. Historical approximations include fee 0.1%/side, slippage 0.05%/side, stop-loss, take-profit and conservative stop-before-target assumptions. Results are compared against a fixed in-sample-selected strategy and a 25%-allocated passive benchmark on the same holdout.
+
+This is a **single historical holdout**. It is not prospective/live forward testing, fully rolling walk-forward, reliable predictive intelligence, or evidence of profitability. Sparse samples and selection bias can lead to cash-only or losing results. The already-running Cloudflare simulator is unaffected. Binance testnet and live orders remain disabled.
+
+Offline: `python -m unittest discover -p 'test_*.py' -v`.
