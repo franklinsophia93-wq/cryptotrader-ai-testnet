@@ -2,6 +2,7 @@
 // No API keys, no trading endpoints, no interaction with other Cloudflare Workers.
 import {DurableObject} from 'cloudflare:workers';
 import {CONFIG, KEYS, blank, applyTick, failedTick, status} from './adaptive_shadow_core.mjs';
+import {renderDashboard} from './adaptive_shadow_dashboard.mjs';
 const BASE='https://api.exchange.coinbase.com/products/';
 const response=(body,statusCode=200)=>new Response(JSON.stringify(body),{status:statusCode,headers:{
  'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'
@@ -72,8 +73,14 @@ export class AdaptiveShadow extends DurableObject{
    try{next=applyTick(previous,await collectAll(now),now)}
    catch(e){next=failedTick(previous,now,String(e?.message||'MARKET_UNAVAILABLE'))}
    await this.ctx.storage.put('shadow',next);
+   const overview={
+     positions:KEYS.filter(k=>next.portfolios[k].position!==null).length,
+     closedTrades:KEYS.reduce((a,k)=>a+next.portfolios[k].trades,0),
+     decisions:KEYS.reduce((a,k)=>a+next.portfolios[k].decisions,0),
+     reasons:Object.fromEntries(KEYS.map(k=>[k,next.portfolios[k].latestDecision?.reason??null]))
+   };
    return response({updated:true,healthy:next.lastError===null,error:next.lastError,
-    totalCycles:next.cycles.total,ordersEnabled:false});
+    totalCycles:next.cycles.total,overview,ordersEnabled:false});
   }catch{
    return response({updated:false,error:'PERSISTENCE_UNAVAILABLE',ordersEnabled:false},503);
   }finally{this.busy=false}
@@ -84,6 +91,18 @@ export default{
  async fetch(request,env){
   const path=new URL(request.url).pathname;
   if(request.method!=='GET')return response({error:'METHOD_NOT_ALLOWED'},405);
+  if(path==='/'||path==='/dashboard'){
+   try{
+    const internal=await instance(env).fetch('https://internal/state');
+    if(!internal.ok)return response({error:'DASHBOARD_UNAVAILABLE'},503);
+    const state=await internal.json();
+    return new Response(renderDashboard(state,Date.now()),{status:200,headers:{
+     'content-type':'text/html; charset=utf-8','cache-control':'no-store',
+     'x-content-type-options':'nosniff',
+     'content-security-policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+    }});
+   }catch{return response({error:'DASHBOARD_UNAVAILABLE'},503)}
+  }
   if(path==='/health')return response({service:'cryptotrader-adaptive-shadow',
    mode:'SHADOW_FORWARD_ONLY',ordersEnabled:false,
    warning:'Service response does not establish market data health or 24-hour uptime'});
@@ -100,7 +119,8 @@ export default{
     const r=await instance(env).fetch('https://internal/tick',{method:'POST'});
     const j=await r.json();
     console.log('SHADOW_CYCLE',JSON.stringify({http:r.status,updated:j.updated===true,
-      healthy:j.healthy===true,error:j.error||null,total:j.totalCycles||0}));
+      healthy:j.healthy===true,error:j.error||null,total:j.totalCycles||0,
+      overview:j.overview||null}));
    }catch{
     console.log('SHADOW_CYCLE',JSON.stringify({updated:false,error:'SCHEDULED_INVOCATION_FAILED'}));
    }
