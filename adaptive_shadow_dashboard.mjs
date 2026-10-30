@@ -73,6 +73,7 @@ export function renderDashboard(s,now=Date.now()){
  const portfolios=s?.portfolios||{},cycles=s?.cycles||{};
  const finance=s?.financialAudit||null,paired=s?.pairedComparison||null;
  const uptime=s?.health24h||null;
+ const maturity=s?.researchMaturity||null;
  const equity=keys.reduce((a,k)=>a+(Number(portfolios[k]?.equityUSD)||0),0);
  const positions=keys.filter(k=>portfolios[k]?.openPosition).length;
  const last=Date.parse(s?.lastTick||'');
@@ -113,6 +114,14 @@ export function renderDashboard(s,now=Date.now()){
   keys.map(k=>marketCard(k,portfolios[k],finance?.accounts?.[k])).join(''),
   '</section><h2>Comparação prospectiva: adaptativo x fixo</h2>',
   renderPaired(paired),
+  '<h2>Qualidade da evidência prospectiva</h2><section class="events">',
+  '<span class="pill ',maturity?.sampleAdequate?'good':'warn','">',
+  maturity?.sampleAdequate?'Amostra para revisão humana':'Amostra ainda insuficiente','</span>',
+  '<p class="note">Tempo observado: ',enc(num(maturity?.elapsedDays||0)),
+  ' de 30 dias · Operações encerradas: adaptativo ',num(maturity?.adaptiveTrades||0),
+  ' / fixo ',num(maturity?.fixedTrades||0),' (mínimo 30 por modelo).</p>',
+  '<p class="note">Status técnico: ',enc(maturity?.status||'NOT_STARTED'),
+  '. Mesmo uma amostra suficiente não demonstra vantagem estatística nem autoriza negociação real.</p></section>',
   '<h2>Últimas operações encerradas</h2>',renderTrades(s?.recentClosedTrades),
   '<h2>Atividade recente</h2><section class="events"><ul>',
   items||'<li>Sem eventos registrados.</li>','</ul></section>',
