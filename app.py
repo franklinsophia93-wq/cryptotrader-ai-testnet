@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 from public_market import public_market_check
 from paper_research import research_snapshot
 from strategy_validation import walkforward_report
+from strategy_lab_v3 import lab_report
 
 TESTNET_URL = 'https://testnet.binance.vision/api/v3/time'
 
@@ -58,6 +59,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(research_snapshot())
         elif path == '/research/validation-v2':
             self.reply(walkforward_report())
+        elif path == '/research/strategies-v3':
+            self.reply(lab_report())
         else:
             self.reply({'error': 'NOT_FOUND'}, 404)
 
@@ -100,6 +103,8 @@ def startup_check():
                     for x in v['evaluations']],
     }
     print('STRATEGY_VALIDATION_STARTUP_CHECK ' + json.dumps(condensed, separators=(',', ':')), flush=True)
+    lab = lab_report()
+    print('STRATEGY_LAB_V3_STARTUP ' + json.dumps({'status':lab['status'],'error':lab.get('error'), 'comparisons':[{'symbol':e['symbol'],'timeframe':e['timeframe'],'selected':e['selectedFromTrainingOnly'],'selectedHoldoutReturnPct': e['selectedHoldout']['returnPct'] if e['selectedHoldout'] else None} for e in lab.get('evaluations',[])]},separators=(',',':')),flush=True)
     for route in ('health', 'price-test', 'status'):
         url = 'https://cryptotrader-paper-engine.franklinsophia93.workers.dev/' + route
         try:
