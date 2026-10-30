@@ -72,7 +72,7 @@ test('stale ticker, even on a single feed, fails the full tick closed',()=>{
  assert.equal(s.events.length,0);
 });
 test('gapped candles are rejected without invented decisions',()=>{
- const q=feeds();q[2].bars[20].t+=H;
+ const q=feeds();q[2].bars[20].t+=SIX;
  const s=applyTick(null,q,NOW);
  assert.equal(s.lastError,'GAPPED_CANDLES');
  assert.ok(Object.values(s.portfolios).every(x=>x.decisions===0));
