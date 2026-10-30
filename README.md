@@ -61,3 +61,22 @@ The Cloudflare paper portfolio `/status` now includes a `cycleHealth` field. It 
 The virtual trading rules were not changed. The Cloudflare Cron Trigger is still configured at five-minute intervals; this is not a proof of 24/7 uptime or availability at every future moment. **No real-money or exchange-Testnet orders are implemented.**
 
 For offline checks: `node --test paper_core.test.mjs paper_health.test.mjs`.
+
+
+## Experimental strategy lab v3 — separate from Cloudflare paper engine
+
+Read-only endpoint: GET /research/strategies-v3.
+
+Compares four predefined LONG-ONLY spot strategies using the SAME completed historical Coinbase Exchange USD candles for BTC-USD and ETH-USD in 1h (~35 days) and 6h (~120 days):
+1. Trend: SMA15 > SMA40, exit on reversal.
+2. Mean reversion: previous close < SMA20 by at least 1% and RSI14 < 40; exit on recovery.
+3. Breakout: last completed close above preceding 20-bar high with volume > 120% of preceding 20-bar average.
+4. Range trading: prior 30-bar range width <= 12%, trend difference <=1.5%, recent close in its lower 30%; exit near midpoint or if sideways regime ends.
+
+All four start independently with $5,000 fictitious cash and invest 25% of AVAILABLE CASH per entry, long-only. Rates include estimated fees 0.10% per side, slippage 0.05% per side, and fixed stop/target per strategy. Stop hits are assumed before targets when both occur in a bar; gaps can get worse fills. No leverage, shorts, real trades, Binance account, or keys.
+
+Data split chronologically: first 70% for in-sample strategy comparison, last 30% for holdout. Strategy choice uses training results ONLY and requires at least three completed training trades. Each candidate's holdout result is shown but must NOT be used to reselect a winner. A 25%-allocated passive holdout benchmark with transaction costs is included. Holdout comparison is exploratory, not a guarantee or exhaustive walk-forward study.
+
+Research caveats: OHLC fills are approximations; fees and slippage estimates; no order book, outage or funding costs; short history and selection bias remain. This does NOT trade continuously. The live Cloudflare virtual portfolio and SMA rules have NOT changed.
+
+Run tests: python -m unittest discover -p 'test_*.py' -v.
