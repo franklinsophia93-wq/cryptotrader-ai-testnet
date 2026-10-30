@@ -95,3 +95,27 @@ The learned regime-to-strategy mapping is then **frozen** and replayed on the la
 This is a **single historical holdout**. It is not prospective/live forward testing, fully rolling walk-forward, reliable predictive intelligence, or evidence of profitability. Sparse samples and selection bias can lead to cash-only or losing results. The already-running Cloudflare simulator is unaffected. Binance testnet and live orders remain disabled.
 
 Offline: `python -m unittest discover -p 'test_*.py' -v`.
+
+
+## Adaptive v4 prospective shadow observer (Cloudflare — isolated)
+
+A separate Cloudflare Worker `cryptotrader-adaptive-shadow` and its own SQLite-backed Durable Object store are deployed. No changes are made to `cryptotrader-paper-engine`, its money balance, trading logic, monitoring, or Binance/Orion resources.
+
+- `GET https://cryptotrader-adaptive-shadow.franklinsophia93.workers.dev/health`: process status only.
+- `GET https://cryptotrader-adaptive-shadow.franklinsophia93.workers.dev/configuration`: immutable training-era regime mapping and modeled costs.
+- `GET https://cryptotrader-adaptive-shadow.franklinsophia93.workers.dev/status`: durable forward-only observation status, market decisions, strictly fictitious portfolios, and recent entries/exits.
+- Private Cron Trigger every 5 minutes. No public `/tick` or write endpoints. Data sources are **Coinbase Exchange public** BTC-USD and ETH-USD ticker plus completed 1h/6h candles. No API keys used.
+
+Pre-selected strategy mappings, frozen from the experimental v4 training run before this prospective monitor's activation:
+- BTC-USD 1h: DOWNTREND -> reversion, other regimes -> CASH.
+- ETH-USD 1h: all regimes -> CASH.
+- BTC-USD 6h: UPTREND -> trend; DOWNTREND -> reversion; SIDEWAYS -> breakout; HIGH_VOLATILITY -> CASH.
+- ETH-USD 6h: UPTREND/HIGH_VOLATILITY -> trend; SIDEWAYS -> reversion; DOWNTREND -> CASH.
+
+Each of the FOUR independent comparison accounts starts with **US$5,000 virtual USD** (US$20,000 total across scenarios, NOT linked to or transferred from the original US$10,000 Cloudflare paper account). It can hold at most one long-only position per market/timeframe, allocating 25% of available fictional cash. Entry triggers are considered only on a newly completed candle received promptly (<=15 minutes after close); exit/risk management can use subsequent fresh 5-minute snapshots. Fees 0.10% and slippage 0.05% per side, simulated stop/target per selected strategy; day loss guard 3% and peak drawdown guard 8% prevent **new entries**. Any incomplete/stale/missing market feed freezes **all** virtual fills for the cycle and logs a sanitized error.
+
+**Prospective observations are not historical OHLC backtest fills**. Quotes are sampled every five minutes, so unobserved intratick price moves, order-book liquidity, spreads, platform downtime and slippage can make real fills substantially worse. Existing research strategy choices are fixed, no retraining occurs, and observation of future decisions starts with the first Cron cycle after deployment. A successful HTTP `/health` is not proof of market access, a prospective trading result, 24-hour reliability or profitability. The prior Binance Testnet HTTP 451 limitation persists for the unrelated original worker.
+
+Safety: Worker contains no exchange trading route and no Binance/Cloudflare keys. Public endpoints expose **fictional** status only. The individual decision events are persisted in the separate Durable Object, capped to 300 recent events; this does not replace archival backups. Before any live trading, require much longer forward tests and independent risk review.
+
+Tests: `node --test adaptive_shadow_core.test.mjs` (also included in GitHub Actions).
