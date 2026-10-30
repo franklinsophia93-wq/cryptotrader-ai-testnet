@@ -4,7 +4,7 @@ const usd=n=>Number.isFinite(n)?new Intl.NumberFormat('pt-BR',{style:'currency',
 const num=n=>Number.isFinite(n)?new Intl.NumberFormat('pt-BR').format(n):'—';
 const time=x=>{const t=Date.parse(x||'');return Number.isFinite(t)?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(t):'—'};
 const age=(x,now)=>{const t=Date.parse(x||'');return !Number.isFinite(t)?'sem registro':now-t<60000?'menos de 1 minuto':Math.floor(Math.max(0,now-t)/60000)+' minutos'};
-const reasons={BAR_TOO_OLD:'Candle fora da janela segura para entrada',FROZEN_CASH:'Sem estratégia aprovada para este cenário',NO_ENTRY_SIGNAL:'Estratégia selecionada, mas sem sinal de compra',POSITION_OPEN:'Posição virtual já aberta',RISK_GUARD:'Limite de risco atingido',CLOSED_SAME_TICK:'Posição encerrada neste ciclo',ELIGIBLE:'Condição de entrada satisfeita'};
+const reasons={CLOSED_BAR_EXIT:'Saída após mudança do sinal no candle fechado',TICK_STOP:'Stop de proteção simulado',TICK_TARGET:'Alvo simulado atingido',BAR_TOO_OLD:'Candle fora da janela segura para entrada',FROZEN_CASH:'Sem estratégia aprovada para este cenário',NO_ENTRY_SIGNAL:'Estratégia selecionada, mas sem sinal de compra',POSITION_OPEN:'Posição virtual já aberta',RISK_GUARD:'Limite de risco atingido',CLOSED_SAME_TICK:'Posição encerrada neste ciclo',ELIGIBLE:'Condição de entrada satisfeita'};
 const regimes={UPTREND:'Tendência de alta',DOWNTREND:'Tendência de baixa',SIDEWAYS:'Mercado lateral',HIGH_VOLATILITY:'Alta volatilidade'};
 const strategies={trend:'Tendência',reversion:'Reversão',breakout:'Rompimento',range:'Faixa',CASH:'Permanecer em caixa'};
 const keys=['BTC-USD|1h','ETH-USD|1h','BTC-USD|6h','ETH-USD|6h'];
@@ -30,7 +30,7 @@ const css=[
 'li:last-child{border:none}li time{color:#a1b5c5;margin-right:10px}footer{margin-top:25px;border-top:1px solid #2b4154;padding-top:14px;color:#a9bcce;font-size:13px}',
 '@media(max-width:650px){.grid{grid-template-columns:1fr}.overview{grid-template-columns:repeat(2,1fr)}.tile:last-child{grid-column:span 2}.numbers b{font-size:17px}}'
 ].join('');
-function marketCard(key,p){
+function marketCard(key,p,accounting){
  const d=p?.latestDecision||{},holding=p?.openPosition,parts=key.split('|');
  return [
  '<article class="card"><div class="cardtop"><div><h3>',enc(parts[0].replace('-USD','')),' <small>',enc(parts[1]),'</small></h3><small>',enc(regimes[d.regime]||'Regime ainda não classificado'),'</small></div>',
@@ -39,14 +39,39 @@ function marketCard(key,p){
  '<div class="info"><small>Estratégia</small><b>',enc(strategies[d.chosenStrategy]||'Aguardando dados'),'</b><p>',enc(reasons[d.reason]||'Aguardando próximo sinal'),'</p>',
  '<small>Candle fechado: ',enc(time(d.closedBarAt)),'</small></div>',
  '<div class="metrics">Decisões: ',num(p?.processedClosedBars||0),' · Negociações encerradas: ',num(p?.closedTrades||0),
- ' · Resultado realizado: ',enc(usd(p?.realizedUSD||0)),'</div>',
+ ' · Realizado: ',enc(usd(accounting?.realizedUSD??p?.realizedUSD??0)),
+ ' · Não realizado: ',enc(usd(accounting?.unrealizedUSD??0)),'</div>',
  holding?'<p class="note">Posição virtual: '+enc(strategies[holding.strategy]||holding.strategy)+' · entrada '+enc(usd(holding.entryPrice))+'</p>':'',
  '</article>'
  ].join('');
 }
+function renderPaired(p){
+ if(!p?.initialized)return '<section class="events"><p class="note">As duas carteiras de comparação iniciarão juntas no próximo ciclo saudável, sem operações retroativas.</p></section>';
+ const arm=(name,title)=>{
+  const x=p.arms?.[name];
+  return '<div class="tile"><small>'+enc(title)+'</small><strong>'+enc(usd(x?.netResultUSD))+'</strong>'+
+    '<small>Patrimônio: '+enc(usd(x?.totalEquityUSD))+' · Operações fechadas: '+num(x?.completedTrades||0)+'</small></div>';
+ };
+ return '<div class="note">Mesmo período a partir de '+enc(time(p.startedAt))+
+  ' (Brasília). Capital virtual novo de US$ 20.000 em cada braço; não inclui posições anteriores.</div>'+
+  '<div class="overview">'+arm('adaptive','Seleção adaptativa v4')+
+  arm('fixed','Seleção fixa v3')+
+  '<div class="tile"><small>Ciclos pareados</small><strong>'+num(p.cycles||0)+'</strong>'+
+  '<small>Ignorados por indisponibilidade dos dados: '+num(p.skippedCycles||0)+'</small></div></div>';
+}
+function renderTrades(trades){
+ if(!Array.isArray(trades)||!trades.length)return '<section class="events"><p class="note">Sem novas operações encerradas disponíveis no histórico recente.</p></section>';
+ return '<section class="events"><ul>'+trades.slice(0,8).map(t=>
+  '<li><time>'+enc(time(t.exitedAt))+'</time><b>'+enc(t.market)+'</b> · Resultado: '+
+  enc(usd(t.realizedUSD))+' · '+enc(reasons[t.reason]||t.reason||'Saída registrada')+
+  ' · Taxa de saída aproximada: '+enc(usd(t.modeledExitFeeUSD))+
+  (t.matchedEntry?' · Taxas totais aproximadas: '+enc(usd(t.modeledTotalFeesUSD)):' · entrada não disponível neste histórico')+
+  '</li>').join('')+'</ul></section>';
+}
 export function renderDashboard(s,now=Date.now()){
  const initialized=s?.initialized===true;
  const portfolios=s?.portfolios||{},cycles=s?.cycles||{};
+ const finance=s?.financialAudit||null,paired=s?.pairedComparison||null;
  const equity=keys.reduce((a,k)=>a+(Number(portfolios[k]?.equityUSD)||0),0);
  const positions=keys.filter(k=>portfolios[k]?.openPosition).length;
  const last=Date.parse(s?.lastTick||'');
@@ -68,15 +93,23 @@ export function renderDashboard(s,now=Date.now()){
   '<p class="note"><a href="/status">Dados técnicos</a> · <a href="/configuration">Estratégias congeladas</a></p>',
   '<section class="overview"><div class="tile"><small>Patrimônio fictício total</small><strong>',initialized?enc(usd(equity)):'—','</strong></div>',
   '<div class="tile"><small>Ciclos saudáveis / total</small><strong>',num(cycles.healthy||0),' / ',num(cycles.total||0),'</strong></div>',
-  '<div class="tile"><small>Posições abertas</small><strong>',initialized?num(positions):'—','</strong></div></section>',
+  '<div class="tile"><small>Posições abertas</small><strong>',initialized?num(positions):'—','</strong></div>',
+  '<div class="tile"><small>Resultado realizado</small><strong>',initialized?enc(usd(finance?.realizedUSD)):'—','</strong></div>',
+  '<div class="tile"><small>Resultado não realizado*</small><strong>',initialized?enc(usd(finance?.unrealizedUSD)):'—','</strong></div>',
+  '<div class="tile"><small>Resultado total simulado</small><strong>',initialized?enc(usd(finance?.totalResultUSD)):'—','</strong></div></section>',
   '<p class="note">Último ciclo: ',enc(time(s?.lastTick)),' (Brasília), ',enc(age(s?.lastTick,now)),'. ',
   s?.lastError?'Último erro: '+enc(s.lastError)+'. ':'','Atualização automática desta página a cada 60 segundos.</p>',
   '<h2>Quatro contas virtuais independentes</h2><section class="grid">',
-  keys.map(k=>marketCard(k,portfolios[k])).join(''),
-  '</section><h2>Atividade recente</h2><section class="events"><ul>',
+  keys.map(k=>marketCard(k,portfolios[k],finance?.accounts?.[k])).join(''),
+  '</section><h2>Comparação prospectiva: adaptativo x fixo</h2>',
+  renderPaired(paired),
+  '<h2>Últimas operações encerradas</h2>',renderTrades(s?.recentClosedTrades),
+  '<h2>Atividade recente</h2><section class="events"><ul>',
   items||'<li>Sem eventos registrados.</li>','</ul></section>',
   '<footer>Coinbase Exchange pública · saldos e negociações exclusivamente fictícios · US$ 5.000 iniciais por cenário. ',
-  'As decisões dependem de candles fechados e os preços são amostrados a cada cinco minutos. ',
+  'O resultado não realizado* é uma estimativa de liquidação da posição virtual, incluindo custos modelados. ',
+  'As taxas de eventos antigos são reconstruídas a partir de números arredondados, não recibos de corretora. ',
+  'As decisões dependem de candles fechados e os preços são amostrados a cada cinco minutos. '
   'Este monitor não demonstra lucros, disponibilidade contínua de 24 horas nem desempenho real de corretora.</footer>',
   '</main></body></html>'
  ].join('');
