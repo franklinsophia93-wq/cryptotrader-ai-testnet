@@ -6,6 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from public_market import public_market_check
+from paper_research import research_snapshot
 
 TESTNET_URL = 'https://testnet.binance.vision/api/v3/time'
 
@@ -52,6 +53,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply({'environment': 'BINANCE_SPOT_TESTNET', **probe(), 'ordersEnabled': False})
         elif path == '/market-check':
             self.reply(public_market_check())
+        elif path == '/research/backtest':
+            self.reply(research_snapshot())
         else:
             self.reply({'error': 'NOT_FOUND'}, 404)
 
@@ -78,6 +81,11 @@ def startup_check():
         for s in market['symbols']
     ]}
     print('PUBLIC_MARKET_STARTUP_CHECK ' + json.dumps(safe, separators=(',', ':')), flush=True)
+    study = research_snapshot()
+    sanitized = {'status': study['status'], 'error': study.get('error'),
+                 'results': [{'symbol': v['symbol'], 'trades': v['trades'], 'candlesUsed': v['candlesUsed']}
+                             for v in study.get('results', [])]}
+    print('PAPER_RESEARCH_STARTUP_CHECK ' + json.dumps(sanitized, separators=(',', ':')), flush=True)
 
 
 if __name__ == '__main__':
