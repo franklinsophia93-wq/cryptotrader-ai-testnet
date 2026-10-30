@@ -84,6 +84,17 @@ export default {
    return reply({error:'NOT_FOUND'},404);
  },
  async scheduled(_event,env,ctx){
-   ctx.waitUntil(portfolio(env).fetch('https://internal/tick',{method:'POST'}));
+   ctx.waitUntil((async()=>{
+     try {
+       const response=await portfolio(env).fetch('https://internal/tick',{method:'POST'});
+       const result=await response.json();
+       console.log('PAPER_CRON_RESULT',JSON.stringify({
+         httpStatus:response.status,updated:result.updated===true,
+         marketError:result.marketError||null
+       }));
+     }catch{
+       console.log('PAPER_CRON_RESULT',JSON.stringify({updated:false,marketError:'SCHEDULED_INVOCATION_ERROR'}));
+     }
+   })());
  }
 };
