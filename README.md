@@ -134,3 +134,16 @@ The dashboard refreshes itself every 60 seconds, but **does not trigger trading 
 Scheduled execution logs now contain anonymized aggregate counts of open virtual positions, closed virtual trades, processed decisions and last known reason codes for each scenario. They do not include API keys or actual orders. The fixed strategy map, Durable Object ID, stored state, and order-disabled guard are unchanged.
 
 Run `node --test adaptive_shadow_core.test.mjs adaptive_shadow_dashboard.test.mjs`.
+
+
+## Shadow v4 financial audit and equal-start paired forward benchmark
+
+The isolated Cloudflare Worker `cryptotrader-adaptive-shadow` now adds read-only fields to `/status`: `financialAudit` and `recentClosedTrades`. They separate realized P&L from unrealized P&L (liquidation-equivalent value of the one open virtual position per account), with a total account and cross-account view. Per-side simulated costs are 0.10% fees and 0.05% slippage. Historic fees are **reconstructed estimates from rounded virtual events**, not actual Binance or Coinbase invoices. Historical events may be truncated by the 300-event rolling window; an unmatched sale is reported as such rather than inventing an entry.
+
+An independent **prospective paired** benchmark now begins at its own first successful five-minute feed after deployment. This does not modify the original four `shadow` portfolios nor the frozen regime mapping. It creates TWO NEW ARMS, each containing four independently funded US$5,000 virtual accounts (US$20,000 per arm):
+- `adaptive`: frozen regime-to-strategy selection from v4.
+- `fixed`: frozen training-selected v3 benchmark (`BTC-USD|1h` reversion, `ETH-USD|1h` breakout, `BTC-USD|6h` breakout, `ETH-USD|6h` reversion).
+
+Both arms start simultaneously with ZERO open positions and no retrospective fills, observe the **same** future public Coinbase quotes and completed candles, and apply the same modeled fees/slippage, 25% per-entry sizing, long-only constraints, stop/target risk controls, and three percent daily/eight percent peak drawdown entry guards. They do **not** share cash with the pre-existing live paper account. `pairedComparison` in `/status` and the mobile `/dashboard` show per-arm portfolio equity, cumulative return and closed trades for the **aligned forward period only**. A skipped feed leaves both paired arms unchanged. It is inappropriate to compare the new paired arm's performance with returns from a different earlier start date.
+
+Use `node --test adaptive_shadow_audit.test.mjs` and existing CI. Only completed future trades and adequate sample sizes can support meaningful conclusions. The original Cloudflare `cryptotrader-paper-engine`, Binance keys, real orders, and Orion remain unchanged.
