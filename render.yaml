@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: cryptotrader-testnet-egress-check
+    runtime: python
+    plan: free
+    buildCommand: "python -m compileall -q app.py"
+    startCommand: "python app.py"
+    healthCheckPath: /health
+    autoDeployTrigger: off
