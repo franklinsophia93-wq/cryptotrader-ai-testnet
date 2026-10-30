@@ -72,6 +72,7 @@ export function renderDashboard(s,now=Date.now()){
  const initialized=s?.initialized===true;
  const portfolios=s?.portfolios||{},cycles=s?.cycles||{};
  const finance=s?.financialAudit||null,paired=s?.pairedComparison||null;
+ const uptime=s?.health24h||null;
  const equity=keys.reduce((a,k)=>a+(Number(portfolios[k]?.equityUSD)||0),0);
  const positions=keys.filter(k=>portfolios[k]?.openPosition).length;
  const last=Date.parse(s?.lastTick||'');
@@ -99,6 +100,15 @@ export function renderDashboard(s,now=Date.now()){
   '<div class="tile"><small>Resultado total simulado</small><strong>',initialized?enc(usd(finance?.totalResultUSD)):'—','</strong></div></section>',
   '<p class="note">Último ciclo: ',enc(time(s?.lastTick)),' (Brasília), ',enc(age(s?.lastTick,now)),'. ',
   s?.lastError?'Último erro: '+enc(s.lastError)+'. ':'','Atualização automática desta página a cada 60 segundos.</p>',
+  '<h2>Validação operacional das últimas 24 horas</h2><section class="events">',
+  '<span class="pill ',uptime?.certified24h?'good':'warn','">',
+  uptime?.certified24h?'24h verificadas':'Verificação ainda incompleta','</span>',
+  '<p class="note">Histórico detalhado disponível: ',enc(num(uptime?.recordedCoverageHours??0)),
+  ' de 24 horas · ciclos saudáveis neste período: ',num(uptime?.healthyChecksWithinWindow||0),
+  ' · falhas: ',num(uptime?.failedChecksWithinWindow||0),
+  ' · lacunas: ',num(uptime?.gapsInWindow||0),'.</p>',
+  '<p class="note">A certificação exige 24h contínuas registradas, sem falhas ou intervalos perdidos. ',
+  'Os totais acumulados de ciclos não substituem as evidências por horário.</p></section>',
   '<h2>Quatro contas virtuais independentes</h2><section class="grid">',
   keys.map(k=>marketCard(k,portfolios[k],finance?.accounts?.[k])).join(''),
   '</section><h2>Comparação prospectiva: adaptativo x fixo</h2>',
@@ -110,7 +120,7 @@ export function renderDashboard(s,now=Date.now()){
   'O resultado não realizado* é uma estimativa de liquidação da posição virtual, incluindo custos modelados. ',
   'As taxas de eventos antigos são reconstruídas a partir de números arredondados, não recibos de corretora. ',
   'As decisões dependem de candles fechados e os preços são amostrados a cada cinco minutos. ',
-  'Este monitor não demonstra lucros, disponibilidade contínua de 24 horas nem desempenho real de corretora.</footer>',
+  'Este monitor não demonstra lucratividade nem desempenho de execução em corretora; a verificação operacional de 24h é independente desses resultados.</footer>',
   '</main></body></html>'
  ].join('');
 }
