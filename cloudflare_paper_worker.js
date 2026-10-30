@@ -2,6 +2,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { PAIRS, freshState, step, publicView } from './paper_core.mjs';
 import {recordCycle,feedHttpCode} from './paper_health.mjs';
+import {explainMarketSignal} from './paper_signals.mjs';
 const HOUR=3600000;
 const BASE='https://api.exchange.coinbase.com/products/';
 const reply=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{
@@ -76,6 +77,25 @@ export default {
    if(request.method!=='GET')return reply({error:'METHOD_NOT_ALLOWED'},405);
    if(path==='/health')return reply({service:'cryptotrader-paper-engine',mode:'PAPER_ONLY',ordersEnabled:false});
    if(path==='/status')return portfolio(env).fetch('https://internal/state');
+   if(path==='/signals'){
+      const now=Date.now();
+      const statusResponse=await portfolio(env).fetch('https://internal/state');
+      if(!statusResponse.ok)return reply({status:'PORTFOLIO_UNAVAILABLE'},503);
+      const portfolioState=await statusResponse.json();
+      const symbols=await Promise.all(PAIRS.map(async symbol=>{
+        try {
+          const quote=await market(symbol,now);
+          return explainMarketSignal(quote,portfolioState);
+        } catch(e) {
+          const code=String(e?.message||'DATA_SOURCE_UNAVAILABLE');
+          return {symbol,status:'DATA_UNAVAILABLE',
+            error:/^(HTTP_[0-9]{3}_(BTC|ETH)_(TICKER|CANDLES)|STALE_CANDLES|INSUFFICIENT_CANDLES|GAPPED_CANDLES|BAD_CANDLE)$/.test(code)?code:'DATA_SOURCE_UNAVAILABLE',
+            bullishConditionMet:false};
+        }
+      }));
+      return reply({mode:'PAPER_ONLY',source:'COINBASE_EXCHANGE_PUBLIC',description:'Read-only SMA snapshot, not an order decision',
+        lastPortfolioTick:portfolioState.lastTick,ordersEnabled:false,symbols});
+   }
    if(path==='/price-test'){
       const now=Date.now(),arr=await Promise.all(PAIRS.map(async sym=>{
         try{const x=await market(sym,now);return {symbol:sym,status:'FRESH',closedBar:x.barTimestamp}}
