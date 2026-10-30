@@ -109,7 +109,7 @@ export function renderDashboard(s,now=Date.now()){
   '<footer>Coinbase Exchange pública · saldos e negociações exclusivamente fictícios · US$ 5.000 iniciais por cenário. ',
   'O resultado não realizado* é uma estimativa de liquidação da posição virtual, incluindo custos modelados. ',
   'As taxas de eventos antigos são reconstruídas a partir de números arredondados, não recibos de corretora. ',
-  'As decisões dependem de candles fechados e os preços são amostrados a cada cinco minutos. '
+  'As decisões dependem de candles fechados e os preços são amostrados a cada cinco minutos. ',
   'Este monitor não demonstra lucros, disponibilidade contínua de 24 horas nem desempenho real de corretora.</footer>',
   '</main></body></html>'
  ].join('');
