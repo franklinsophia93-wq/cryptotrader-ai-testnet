@@ -147,3 +147,14 @@ An independent **prospective paired** benchmark now begins at its own first succ
 Both arms start simultaneously with ZERO open positions and no retrospective fills, observe the **same** future public Coinbase quotes and completed candles, and apply the same modeled fees/slippage, 25% per-entry sizing, long-only constraints, stop/target risk controls, and three percent daily/eight percent peak drawdown entry guards. They do **not** share cash with the pre-existing live paper account. `pairedComparison` in `/status` and the mobile `/dashboard` show per-arm portfolio equity, cumulative return and closed trades for the **aligned forward period only**. A skipped feed leaves both paired arms unchanged. It is inappropriate to compare the new paired arm's performance with returns from a different earlier start date.
 
 Use `node --test adaptive_shadow_audit.test.mjs` and existing CI. Only completed future trades and adequate sample sizes can support meaningful conclusions. The original Cloudflare `cryptotrader-paper-engine`, Binance keys, real orders, and Orion remain unchanged.
+
+
+## Strict rolling 24-hour certification for the forward-only shadow
+
+`GET /status` now includes `health24h`, calculated from the persisted timestamps and health flags of the **actual scheduled cycles**, rather than from cumulative counters. The mobile `/dashboard` shows recorded hours, healthy/failed checks, missing intervals, and certification state. Each successful or failed scheduled cycle retains one entry in a rolling 340-cycle history (about 28 hours 20 minutes at the intended 5-minute cadence).
+
+Certification requires a full 24-hour window of recorded checks with at least 287 qualifying 5-minute observations, no failed entries, no intervals greater than 7.5 minutes, and a last observation at most 11 minutes old. Missing cycles and stale data fail closed. Prior timestamps discarded under the old 24-entry retention are NOT reconstructed; the system must accumulate fresh evidence and may not immediately show certification after this upgrade.
+
+**Operational** 24-hour certification is not a profitability guarantee, a market-data completeness guarantee, exchange execution proof, a fee quote, or approval for real trading. The comparison and the original four virtual portfolios keep their existing independent state; no strategy mapping, position, real order, or account credential is modified by this addition.
+
+Tests: `node --test adaptive_shadow_24h.test.mjs`. CI verifies missing cycles, a failed cycle, staleness, recovery after old failures leave the window, and retention.
