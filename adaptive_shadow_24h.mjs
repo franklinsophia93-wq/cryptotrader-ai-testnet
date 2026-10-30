@@ -26,6 +26,7 @@ export function verify24h(cycles,now=Date.now()){
  if(anchored){
   let prior=anchor.at;
   for(const p of included){
+   if(p.at===prior)continue;
    const gap=p.at-prior;
    if(gap>MAX_GAP||gap<=0)gapsInWindow++;
    prior=p.at;
