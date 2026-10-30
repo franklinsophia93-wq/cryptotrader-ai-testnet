@@ -46,3 +46,18 @@ A separate Cloudflare Worker named `cryptotrader-paper-engine` is deployed along
 **Important:** Although the Worker, schedule and Durable Object binding are configured, live ingestion, persisted virtual transactions and 24-hour uptime are **not yet certified**. Cron changes can take up to 15 minutes to propagate. Tests are unit tests, not 24-hour operational verification. Public endpoint checks from Render and GitHub Actions currently receive HTTP 403; a mobile-browser check may help distinguish network restrictions.
 
 Paper trading based on Coinbase USD data is **not** Binance Testnet trading. The blocked Binance credentials remain on the separate original Worker and are never copied into this Worker.
+
+
+## Persistent operational verification v3
+
+The Cloudflare paper portfolio `/status` now includes a `cycleHealth` field. It is calculated from **successfully persisted scheduled executions**, not page visits or the worker's public HTTP health response.
+
+- `totalCycles`, `successfulCycles`, `failedCycles` and `consecutiveFailures` are stored in the same Durable Object record as the fictional portfolio.
+- `lastSuccessfulAt` and `lastFailedAt` expose UTC timestamps; `recentCycles` includes at most 12 recent cycle results with sanitized error codes.
+- `missingIntervalsEstimate`, `maxGapMinutes` and `coveredHours` evaluate the 24-hour observational window. Duplicate triggers within 60 seconds are not double-counted.
+- `fullDayVerified` is deliberately **false** until the recorded period spans essentially a full 24 hours with adequate sample count, zero feed failures and no scheduling gaps. A 200 response alone does not count as healthy market data.
+- Historical cycles that took place before v3 are **not** fabricated into the new counters. Their logs remain separate evidence.
+
+The virtual trading rules were not changed. The Cloudflare Cron Trigger is still configured at five-minute intervals; this is not a proof of 24/7 uptime or availability at every future moment. **No real-money or exchange-Testnet orders are implemented.**
+
+For offline checks: `node --test paper_core.test.mjs paper_health.test.mjs`.
