@@ -1,4 +1,13 @@
 // Operational telemetry for a fictional-only portfolio; no exchange credentials or orders.
+export function feedHttpCode(status,symbol,stage){
+  const parts=String(symbol).split('-');
+  const asset=parts[0];
+  if(!Number.isInteger(status)||status<100||status>599||
+     !['BTC','ETH'].includes(asset)||!['TICKER','CANDLES'].includes(stage))
+     return 'UPSTREAM_HTTP_ERROR';
+  return 'HTTP_'+status+'_'+asset+'_'+stage;
+}
+
 export const CADENCE_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_RECORDS = 310; // > 24 h at one observation per five minutes
@@ -32,7 +41,7 @@ export function recordCycle(state, now, healthy, error = null) {
     m.lastFailedAt = iso(now);
   }
   history.push({ t: now, ok, code: ok ? null : (
-    typeof error === 'string' && /^(HTTP_[0-9]{3}|[A-Z_]{3,40})$/.test(error)
+    typeof error === 'string' && /^(HTTP_[0-9]{3}(_(BTC|ETH)_(TICKER|CANDLES))?|[A-Z][A-Z0-9_]{2,47})$/.test(error)
       ? error : 'DATA_UNAVAILABLE') });
   m.history = history.slice(-MAX_RECORDS);
   state.cycleMetrics = m;
