@@ -1,0 +1,21 @@
+name: Cloudflare Paper Engine Smoke
+on:
+  push:
+    paths:
+      - 'smoke_cloudflare.py'
+      - 'cloudflare_paper_worker.js'
+      - 'paper_core.mjs'
+      - '.github/workflows/cloudflare-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test public paper endpoints without secrets
+        run: python smoke_cloudflare.py
