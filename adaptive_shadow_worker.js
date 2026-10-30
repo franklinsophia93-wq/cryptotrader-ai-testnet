@@ -6,6 +6,7 @@ import {renderDashboard} from './adaptive_shadow_dashboard.mjs';
 import {deriveFinancials,reconstructTrades} from './adaptive_shadow_audit.mjs';
 import {advancePaired,skippedPaired,summarizePaired} from './adaptive_paired_forward.mjs';
 import {verify24h} from './adaptive_shadow_24h.mjs';
+import {assessResearch} from './adaptive_shadow_readiness.mjs';
 const BASE='https://api.exchange.coinbase.com/products/';
 const response=(body,statusCode=200)=>new Response(JSON.stringify(body),{status:statusCode,headers:{
  'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'
@@ -66,11 +67,14 @@ export class AdaptiveShadow extends DurableObject{
   const path=new URL(request.url).pathname;
   if(path==='/state'&&request.method==='GET'){
    const stored=await this.ctx.storage.get('shadow');
+   const now=Date.now();
+   const health24h=verify24h(stored?.cycles,now);
    return response({...status(stored),
      financialAudit:deriveFinancials(stored),
      recentClosedTrades:reconstructTrades(stored),
      pairedComparison:summarizePaired(stored?.pairedComparison),
-     health24h:verify24h(stored?.cycles,Date.now()),
+     health24h,
+     researchMaturity:assessResearch(stored?.pairedComparison,health24h,now),
      pairedComparisonError:stored?.pairedComparisonError||null});
   }
   if(path!=='/tick'||request.method!=='POST')return response({error:'NOT_FOUND'},404);
