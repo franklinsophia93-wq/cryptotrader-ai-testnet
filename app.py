@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+from public_market import public_market_check
 
 TESTNET_URL = 'https://testnet.binance.vision/api/v3/time'
 
@@ -49,6 +50,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply({'service': 'binance-testnet-egress-check', 'processRunning': True, 'ordersEnabled': False})
         elif path == '/diagnostico':
             self.reply({'environment': 'BINANCE_SPOT_TESTNET', **probe(), 'ordersEnabled': False})
+        elif path == '/market-check':
+            self.reply(public_market_check())
         else:
             self.reply({'error': 'NOT_FOUND'}, 404)
 
@@ -69,6 +72,12 @@ def startup_check():
     result = probe()
     summary = {'reachable': result['reachable'], 'result': result['result'], 'httpStatus': result['httpStatus']}
     print('BINANCE_TESTNET_STARTUP_CHECK ' + json.dumps(summary, separators=(',', ':')), flush=True)
+    market = public_market_check()
+    safe = {'healthy': market['healthy'], 'symbols': [
+        {'symbol': s['symbol'], 'status': s['status'], 'httpStatus': s.get('httpStatus')}
+        for s in market['symbols']
+    ]}
+    print('PUBLIC_MARKET_STARTUP_CHECK ' + json.dumps(safe, separators=(',', ':')), flush=True)
 
 
 if __name__ == '__main__':
