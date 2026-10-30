@@ -119,3 +119,18 @@ Each of the FOUR independent comparison accounts starts with **US$5,000 virtual 
 Safety: Worker contains no exchange trading route and no Binance/Cloudflare keys. Public endpoints expose **fictional** status only. The individual decision events are persisted in the separate Durable Object, capped to 300 recent events; this does not replace archival backups. Before any live trading, require much longer forward tests and independent risk review.
 
 Tests: `node --test adaptive_shadow_core.test.mjs` (also included in GitHub Actions).
+
+
+## Mobile dashboard for the adaptive forward-only monitor
+
+The isolated Cloudflare Worker now exposes an additional **read-only** mobile-oriented HTML view:
+
+- `GET https://cryptotrader-adaptive-shadow.franklinsophia93.workers.dev/dashboard` — Portuguese responsive status: last recorded cycle (Brasilia timezone), all four independent virtual account balances, open virtual positions, latest regime/decision, and recent events.
+- `GET https://cryptotrader-adaptive-shadow.franklinsophia93.workers.dev/` — same dashboard.
+- Existing `/status`, `/health`, and `/configuration` JSON routes remain unchanged.
+
+The dashboard refreshes itself every 60 seconds, but **does not trigger trading or data collection**; only the existing five-minute Cron Trigger runs the market feed and virtual simulator. The dashboard does not provide buttons to place orders, configure credentials, or change the frozen strategy. A strict Content Security Policy blocks scripts and external resources. The UI shows a warning when the last successful record is more than eleven minutes old, and never claims 24-hour validation on a page-view alone.
+
+Scheduled execution logs now contain anonymized aggregate counts of open virtual positions, closed virtual trades, processed decisions and last known reason codes for each scenario. They do not include API keys or actual orders. The fixed strategy map, Durable Object ID, stored state, and order-disabled guard are unchanged.
+
+Run `node --test adaptive_shadow_core.test.mjs adaptive_shadow_dashboard.test.mjs`.
