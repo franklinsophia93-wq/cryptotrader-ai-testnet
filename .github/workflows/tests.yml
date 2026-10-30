@@ -20,3 +20,5 @@ jobs:
           python-version: '3.13'
       - name: Run offline tests
         run: python -m unittest discover -p 'test_*.py' -v
+      - name: Verify paper engine in Node
+        run: node --test paper_core.test.mjs
