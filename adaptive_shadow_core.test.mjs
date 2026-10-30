@@ -108,6 +108,17 @@ test('failure diagnostics do not trigger virtual sell or buy',()=>{
  assert.equal(failed.lastError,'HTTP_429_BTC_CANDLES_6H');
  assert.ok(failed.portfolios['BTC-USD|6h'].position);
 });
+test('regressed closed candle fails entire tick without modifying portfolios',()=>{
+ const first=applyTick(null,feeds(),NOW);
+ const second=feeds(NOW+5*60000);
+ const bad=second.find(x=>x.key==='ETH-USD|1h');
+ bad.bars=bad.bars.map(c=>({...c,t:c.t-H}));
+ const next=applyTick(first,second,NOW+5*60000);
+ assert.equal(next.lastError,'REGRESSED_BAR');
+ assert.equal(next.cycles.failed,1);
+ assert.equal(next.events.length,first.events.length);
+ assert.deepEqual(next.portfolios,first.portfolios);
+});
 test('untrusted error content never leaks into status',()=>{
  const failed=failedTick(null,NOW,'api secret key abcdef');
  assert.equal(failed.lastError,'MARKET_UNAVAILABLE');
